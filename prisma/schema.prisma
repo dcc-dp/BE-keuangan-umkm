@@ -1,0 +1,620 @@
+generator client {
+  provider             = "prisma-client"
+  output               = "../generated/prisma"
+  moduleFormat         = "cjs"
+  generatedFileExtension = "ts"
+}
+datasource db {
+  provider = "mysql"
+}
+
+// ======================================================
+// ENUMS
+// ======================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProdukStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MetodePembayaran {
+  TUNAI
+  TRANSFER
+  QRIS
+  E_WALLET
+}
+
+enum StatusPenjualan {
+  LUNAS
+  PIUTANG
+  BATAL
+}
+
+enum StatusPembelian {
+  LUNAS
+  HUTANG
+  BATAL
+}
+
+enum StatusPiutang {
+  BELUM_LUNAS
+  LUNAS
+}
+
+enum StatusHutang {
+  BELUM_LUNAS
+  LUNAS
+}
+
+enum ReferensiTipe {
+  PENJUALAN
+  PENGELUARAN
+  PEMBAYARAN_PIUTANG
+  PEMBAYARAN_HUTANG
+  PENYESUAIAN
+}
+
+enum JenisKas {
+  MASUK
+  KELUAR
+}
+
+enum TipeNotifikasi {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+// ======================================================
+// 1. USERS
+// ======================================================
+
+model User {
+  id         BigInt     @id @default(autoincrement()) @db.BigInt
+  nama       String     @db.VarChar(100)
+  username   String     @db.VarChar(50)
+  email      String     @db.VarChar(100)
+  no_hp      String     @db.VarChar(20)
+  password   String     @db.VarChar(255)
+  foto       String?    @db.VarChar(255)
+  status     UserStatus @default(ACTIVE)
+  last_login DateTime?  @db.DateTime(0)
+  created_at DateTime   @default(now()) @db.DateTime(0)
+  updated_at DateTime   @updatedAt @db.DateTime(0)
+
+  // Relasi role
+  user_roles UserRole[]
+
+  // User yang membuat data
+  created_sales             Penjualan[]      @relation("PenjualanCreatedBy")
+  created_purchases         Pembelian[]      @relation("PembelianCreatedBy")
+  created_expenses          Pengeluaran[]    @relation("PengeluaranCreatedBy")
+  created_targets           TargetKeuangan[] @relation("TargetCreatedBy")
+  created_cash_transactions TransaksiKas[]   @relation("TransaksiKasCreatedBy")
+
+  // Notifikasi milik user
+  notifications Notifikasi[] @relation("NotifikasiUser")
+
+  @@map("users")
+}
+
+// ======================================================
+// 2. ROLES
+// ======================================================
+
+model Role {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  nama       String   @db.VarChar(100)
+  deskripsi  String?  @db.Text
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @updatedAt @db.DateTime(0)
+
+  user_roles       UserRole[]
+  role_permissions RolePermission[]
+
+  @@map("roles")
+}
+
+// ======================================================
+// 3. PERMISSIONS
+// ======================================================
+
+model Permission {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  kode       String   @db.VarChar(100)
+  nama       String   @db.VarChar(150)
+  modul      String   @db.VarChar(100)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @updatedAt @db.DateTime(0)
+
+  role_permissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// ======================================================
+// 4. ROLE PERMISSIONS
+// ======================================================
+
+model RolePermission {
+  role_id       BigInt @db.BigInt
+  permission_id BigInt @db.BigInt
+
+  role       Role       @relation(fields: [role_id], references: [id])
+  permission Permission @relation(fields: [permission_id], references: [id])
+
+  @@id([role_id, permission_id])
+  @@map("role_permissions")
+}
+
+// ======================================================
+// 5. USER ROLES
+// ======================================================
+
+model UserRole {
+  user_id BigInt @db.BigInt
+  role_id BigInt @db.BigInt
+
+  user User @relation(fields: [user_id], references: [id])
+  role Role @relation(fields: [role_id], references: [id])
+
+  @@id([user_id, role_id])
+  @@map("user_roles")
+}
+
+// ======================================================
+// 6. USAHA
+// ======================================================
+
+model Usaha {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  nama_usaha  String   @db.VarChar(150)
+  pemilik     String   @db.VarChar(100)
+  email       String   @db.VarChar(100)
+  telepon     String   @db.VarChar(20)
+  alamat      String   @db.Text
+  logo        String?  @db.VarChar(255)
+  jenis_usaha String   @db.VarChar(100)
+  mata_uang   String   @db.VarChar(10)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  updated_at  DateTime @updatedAt @db.DateTime(0)
+
+  kategori_produk      KategoriProduk[]
+  produk               Produk[]
+  supplier             Supplier[]
+  pelanggan            Pelanggan[]
+  rekening             Rekening[]
+  penjualan            Penjualan[]
+  pembelian            Pembelian[]
+  kategori_pengeluaran KategoriPengeluaran[]
+  pengeluaran          Pengeluaran[]
+  transaksi_kas        TransaksiKas[]
+  target_keuangan      TargetKeuangan[]
+  notifikasi           Notifikasi[]
+
+  @@map("usaha")
+}
+
+// ======================================================
+// 7. KATEGORI PRODUK
+// ======================================================
+
+model KategoriProduk {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id   BigInt   @db.BigInt
+  nama       String   @db.VarChar(100)
+  deskripsi  String?  @db.Text
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @updatedAt @db.DateTime(0)
+
+  usaha  Usaha    @relation(fields: [usaha_id], references: [id])
+  produk Produk[]
+
+  @@map("kategori_produk")
+}
+
+// ======================================================
+// 8. PRODUK
+// ======================================================
+
+model Produk {
+  id          BigInt       @id @default(autoincrement()) @db.BigInt
+  usaha_id    BigInt       @db.BigInt
+  kategori_id BigInt       @db.BigInt
+  kode_produk String       @db.VarChar(50)
+  barcode     String?      @db.VarChar(100)
+  nama        String       @db.VarChar(150)
+  harga_modal Decimal      @db.Decimal(15, 2)
+  harga_jual  Decimal      @db.Decimal(15, 2)
+  stok        Int          @default(0)
+  satuan      String       @db.VarChar(50)
+  status      ProdukStatus @default(ACTIVE)
+  created_at  DateTime     @default(now()) @db.DateTime(0)
+  updated_at  DateTime     @updatedAt @db.DateTime(0)
+
+  usaha    Usaha          @relation(fields: [usaha_id], references: [id])
+  kategori KategoriProduk @relation(fields: [kategori_id], references: [id])
+
+  detail_penjualan DetailPenjualan[]
+  detail_pembelian DetailPembelian[]
+
+  @@map("produk")
+}
+
+// ======================================================
+// 9. SUPPLIER
+// ======================================================
+
+model Supplier {
+  id            BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id      BigInt   @db.BigInt
+  nama          String   @db.VarChar(150)
+  telepon       String   @db.VarChar(20)
+  email         String   @db.VarChar(100)
+  alamat        String   @db.Text
+  kontak_person String   @db.VarChar(100)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+  updated_at    DateTime @updatedAt @db.DateTime(0)
+
+  usaha     Usaha       @relation(fields: [usaha_id], references: [id])
+  pembelian Pembelian[]
+  hutang    Hutang[]
+
+  @@map("supplier")
+}
+
+// ======================================================
+// 10. PELANGGAN
+// ======================================================
+
+model Pelanggan {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id   BigInt   @db.BigInt
+  nama       String   @db.VarChar(150)
+  telepon    String   @db.VarChar(20)
+  email      String   @db.VarChar(100)
+  alamat     String   @db.Text
+  poin       Int      @default(0)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @updatedAt @db.DateTime(0)
+
+  usaha     Usaha       @relation(fields: [usaha_id], references: [id])
+  penjualan Penjualan[]
+  piutang   Piutang[]
+
+  @@map("pelanggan")
+}
+
+// ======================================================
+// 11. REKENING
+// ======================================================
+
+model Rekening {
+  id             BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id       BigInt   @db.BigInt
+  nama_rekening  String   @db.VarChar(100)
+  bank           String   @db.VarChar(100)
+  nomor_rekening String   @db.VarChar(100)
+  atas_nama      String   @db.VarChar(100)
+  saldo_awal     Decimal  @db.Decimal(15, 2)
+  saldo          Decimal  @db.Decimal(15, 2)
+  created_at     DateTime @default(now()) @db.DateTime(0)
+  updated_at     DateTime @updatedAt @db.DateTime(0)
+
+  usaha Usaha @relation(fields: [usaha_id], references: [id])
+
+  penjualan          Penjualan[]
+  pembelian          Pembelian[]
+  pengeluaran        Pengeluaran[]
+  pembayaran_piutang PembayaranPiutang[]
+  pembayaran_hutang  PembayaranHutang[]
+  transaksi_kas      TransaksiKas[]
+
+  @@map("rekening")
+}
+
+// ======================================================
+// 12. PENJUALAN
+// ======================================================
+
+model Penjualan {
+  id                BigInt           @id @default(autoincrement()) @db.BigInt
+  usaha_id          BigInt           @db.BigInt
+  pelanggan_id      BigInt?          @db.BigInt
+  rekening_id       BigInt           @db.BigInt
+  nomor_invoice     String           @unique @db.VarChar(30)
+  tanggal           DateTime         @db.DateTime(0)
+  subtotal          Decimal          @db.Decimal(15, 2)
+  diskon            Decimal          @default(0) @db.Decimal(15, 2)
+  pajak             Decimal          @default(0) @db.Decimal(15, 2)
+  biaya_lain        Decimal          @default(0) @db.Decimal(15, 2)
+  total             Decimal          @db.Decimal(15, 2)
+  metode_pembayaran MetodePembayaran
+  status            StatusPenjualan
+  catatan           String?          @db.Text
+  created_by        BigInt           @db.BigInt
+  created_at        DateTime         @default(now()) @db.DateTime(0)
+  updated_at        DateTime         @updatedAt @db.DateTime(0)
+
+  usaha     Usaha      @relation(fields: [usaha_id], references: [id])
+  pelanggan Pelanggan? @relation(fields: [pelanggan_id], references: [id])
+  rekening  Rekening   @relation(fields: [rekening_id], references: [id])
+  createdBy User       @relation("PenjualanCreatedBy", fields: [created_by], references: [id])
+
+  detail_penjualan DetailPenjualan[]
+  piutang          Piutang?
+
+  @@map("penjualan")
+}
+
+// ======================================================
+// 13. DETAIL PENJUALAN
+// ======================================================
+
+model DetailPenjualan {
+  id           BigInt  @id @default(autoincrement()) @db.BigInt
+  penjualan_id BigInt  @db.BigInt
+  produk_id    BigInt  @db.BigInt
+  qty          Int
+  harga_modal  Decimal @db.Decimal(15, 2)
+  harga        Decimal @db.Decimal(15, 2)
+  diskon       Decimal @default(0) @db.Decimal(15, 2)
+  subtotal     Decimal @db.Decimal(15, 2)
+
+  penjualan Penjualan @relation(fields: [penjualan_id], references: [id])
+  produk    Produk    @relation(fields: [produk_id], references: [id])
+
+  @@map("detail_penjualan")
+}
+
+// ======================================================
+// 14. PEMBELIAN
+// ======================================================
+
+model Pembelian {
+  id                BigInt           @id @default(autoincrement()) @db.BigInt
+  usaha_id          BigInt           @db.BigInt
+  supplier_id       BigInt           @db.BigInt
+  rekening_id       BigInt           @db.BigInt
+  nomor_faktur      String           @unique @db.VarChar(30)
+  tanggal           DateTime         @db.DateTime(0)
+  subtotal          Decimal          @db.Decimal(15, 2)
+  diskon            Decimal          @default(0) @db.Decimal(15, 2)
+  pajak             Decimal          @default(0) @db.Decimal(15, 2)
+  ongkir            Decimal          @default(0) @db.Decimal(15, 2)
+  total             Decimal          @db.Decimal(15, 2)
+  metode_pembayaran MetodePembayaran
+  status            StatusPembelian
+  catatan           String?          @db.Text
+  created_by        BigInt           @db.BigInt
+  created_at        DateTime         @default(now()) @db.DateTime(0)
+  updated_at        DateTime         @updatedAt @db.DateTime(0)
+
+  usaha     Usaha    @relation(fields: [usaha_id], references: [id])
+  supplier  Supplier @relation(fields: [supplier_id], references: [id])
+  rekening  Rekening @relation(fields: [rekening_id], references: [id])
+  createdBy User     @relation("PembelianCreatedBy", fields: [created_by], references: [id])
+
+  detail_pembelian DetailPembelian[]
+  hutang           Hutang?
+
+  @@map("pembelian")
+}
+
+// ======================================================
+// 15. DETAIL PEMBELIAN
+// ======================================================
+
+model DetailPembelian {
+  id           BigInt  @id @default(autoincrement()) @db.BigInt
+  pembelian_id BigInt  @db.BigInt
+  produk_id    BigInt  @db.BigInt
+  qty          Int
+  harga        Decimal @db.Decimal(15, 2)
+  harga_jual   Decimal @db.Decimal(15, 2)
+  subtotal     Decimal @db.Decimal(15, 2)
+
+  pembelian Pembelian @relation(fields: [pembelian_id], references: [id])
+  produk    Produk    @relation(fields: [produk_id], references: [id])
+
+  @@map("detail_pembelian")
+}
+
+// ======================================================
+// 16. KATEGORI PENGELUARAN
+// ======================================================
+
+model KategoriPengeluaran {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id   BigInt   @db.BigInt
+  nama       String   @db.VarChar(100)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @updatedAt @db.DateTime(0)
+
+  usaha       Usaha         @relation(fields: [usaha_id], references: [id])
+  pengeluaran Pengeluaran[]
+
+  @@map("kategori_pengeluaran")
+}
+
+// ======================================================
+// 17. PENGELUARAN
+// ======================================================
+
+model Pengeluaran {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id    BigInt   @db.BigInt
+  kategori_id BigInt   @db.BigInt
+  rekening_id BigInt   @db.BigInt
+  tanggal     DateTime @db.DateTime(0)
+  nominal     Decimal  @db.Decimal(15, 2)
+  keterangan  String?  @db.Text
+  created_by  BigInt   @db.BigInt
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  updated_at  DateTime @updatedAt @db.DateTime(0)
+
+  usaha     Usaha               @relation(fields: [usaha_id], references: [id])
+  kategori  KategoriPengeluaran @relation(fields: [kategori_id], references: [id])
+  rekening  Rekening            @relation(fields: [rekening_id], references: [id])
+  createdBy User                @relation("PengeluaranCreatedBy", fields: [created_by], references: [id])
+
+  @@map("pengeluaran")
+}
+
+// ======================================================
+// 18. PIUTANG
+// ======================================================
+
+model Piutang {
+  id            BigInt        @id @default(autoincrement()) @db.BigInt
+  penjualan_id  BigInt        @unique @db.BigInt
+  pelanggan_id  BigInt        @db.BigInt
+  total_piutang Decimal       @db.Decimal(15, 2)
+  sisa_piutang  Decimal       @db.Decimal(15, 2)
+  jatuh_tempo   DateTime      @db.Date
+  status        StatusPiutang
+  created_at    DateTime      @default(now()) @db.DateTime(0)
+  updated_at    DateTime      @updatedAt @db.DateTime(0)
+
+  penjualan          Penjualan           @relation(fields: [penjualan_id], references: [id])
+  pelanggan          Pelanggan           @relation(fields: [pelanggan_id], references: [id])
+  pembayaran_piutang PembayaranPiutang[]
+
+  @@map("piutang")
+}
+
+// ======================================================
+// 19. PEMBAYARAN PIUTANG
+// ======================================================
+
+model PembayaranPiutang {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  piutang_id  BigInt   @db.BigInt
+  rekening_id BigInt   @db.BigInt
+  tanggal     DateTime @db.DateTime(0)
+  nominal     Decimal  @db.Decimal(15, 2)
+  keterangan  String?  @db.Text
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  piutang  Piutang  @relation(fields: [piutang_id], references: [id])
+  rekening Rekening @relation(fields: [rekening_id], references: [id])
+
+  @@map("pembayaran_piutang")
+}
+
+// ======================================================
+// 20. HUTANG
+// ======================================================
+
+model Hutang {
+  id           BigInt       @id @default(autoincrement()) @db.BigInt
+  pembelian_id BigInt       @unique @db.BigInt
+  supplier_id  BigInt       @db.BigInt
+  total_hutang Decimal      @db.Decimal(15, 2)
+  sisa_hutang  Decimal      @db.Decimal(15, 2)
+  jatuh_tempo  DateTime     @db.Date
+  status       StatusHutang
+  created_at   DateTime     @default(now()) @db.DateTime(0)
+  updated_at   DateTime     @updatedAt @db.DateTime(0)
+
+  pembelian         Pembelian          @relation(fields: [pembelian_id], references: [id])
+  supplier          Supplier           @relation(fields: [supplier_id], references: [id])
+  pembayaran_hutang PembayaranHutang[]
+
+  @@map("hutang")
+}
+
+// ======================================================
+// 21. PEMBAYARAN HUTANG
+// ======================================================
+
+model PembayaranHutang {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  hutang_id   BigInt   @db.BigInt
+  rekening_id BigInt   @db.BigInt
+  tanggal     DateTime @db.DateTime(0)
+  nominal     Decimal  @db.Decimal(15, 2)
+  keterangan  String?  @db.Text
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  hutang   Hutang   @relation(fields: [hutang_id], references: [id])
+  rekening Rekening @relation(fields: [rekening_id], references: [id])
+
+  @@map("pembayaran_hutang")
+}
+
+// ======================================================
+// 22. TRANSAKSI KAS
+// ======================================================
+
+model TransaksiKas {
+  id              BigInt        @id @default(autoincrement()) @db.BigInt
+  usaha_id        BigInt        @db.BigInt
+  rekening_id     BigInt        @db.BigInt
+  referensi_tipe  ReferensiTipe
+  referensi_id    BigInt        @db.BigInt
+  nomor_referensi String?       @db.VarChar(30)
+  jenis           JenisKas
+  tanggal         DateTime      @db.DateTime(0)
+  nominal         Decimal       @db.Decimal(15, 2)
+  saldo_sebelum   Decimal       @db.Decimal(15, 2)
+  saldo_setelah   Decimal       @db.Decimal(15, 2)
+  keterangan      String?       @db.Text
+  created_by      BigInt        @db.BigInt
+  created_at      DateTime      @default(now()) @db.DateTime(0)
+
+  usaha     Usaha    @relation(fields: [usaha_id], references: [id])
+  rekening  Rekening @relation(fields: [rekening_id], references: [id])
+  createdBy User     @relation("TransaksiKasCreatedBy", fields: [created_by], references: [id])
+
+  @@map("transaksi_kas")
+}
+
+// ======================================================
+// 23. TARGET KEUANGAN
+// ======================================================
+
+model TargetKeuangan {
+  id                 BigInt   @id @default(autoincrement()) @db.BigInt
+  usaha_id           BigInt   @db.BigInt
+  bulan              Int      @db.TinyInt
+  tahun              Int      @db.SmallInt
+  target_pendapatan  Decimal  @db.Decimal(15, 2)
+  target_pengeluaran Decimal  @db.Decimal(15, 2)
+  target_laba        Decimal  @db.Decimal(15, 2)
+  created_by         BigInt   @db.BigInt
+  created_at         DateTime @default(now()) @db.DateTime(0)
+  updated_at         DateTime @updatedAt @db.DateTime(0)
+
+  usaha     Usaha @relation(fields: [usaha_id], references: [id])
+  createdBy User  @relation("TargetCreatedBy", fields: [created_by], references: [id])
+
+  @@unique([usaha_id, bulan, tahun])
+  @@map("target_keuangan")
+}
+
+// ======================================================
+// 24. NOTIFIKASI
+// ======================================================
+
+model Notifikasi {
+  id          BigInt         @id @default(autoincrement()) @db.BigInt
+  usaha_id    BigInt         @db.BigInt
+  user_id     BigInt         @db.BigInt
+  judul       String         @db.VarChar(150)
+  pesan       String         @db.Text
+  tipe        TipeNotifikasi
+  status_baca Boolean        @default(false)
+  created_at  DateTime       @default(now()) @db.DateTime(0)
+
+  usaha Usaha @relation(fields: [usaha_id], references: [id])
+  user  User  @relation("NotifikasiUser", fields: [user_id], references: [id])
+
+  @@map("notifikasi")
+}
